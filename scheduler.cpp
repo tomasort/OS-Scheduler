@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <list>
 
+
+// TODO: Figure out how to print the required statistics.
+
 #define CURRENT_TIME = 10000
 #define QUANTUM = 10000 //TODO: There is actually no default quantum 
 int num_rnums;
@@ -17,7 +20,8 @@ typedef enum{
     STATE_BLOCKED,
     STATE_READY,
     STATE_CREATED,
-    STATE_PREEMPTED
+    STATE_PREEMPTED,
+    STATE_DONE
 } process_state_t;
 
 typedef enum{
@@ -25,6 +29,7 @@ typedef enum{
     TRANS_TO_RUN,
     TRANS_TO_BLOCK,
     TRANS_TO_PREEMPT, 
+    TRANS_TO_DONE,
 } process_transition_t;
 
 int myrandom(int burst){
@@ -32,7 +37,9 @@ int myrandom(int burst){
     if (ofs >= num_rnums){ // We wrap around if we get to the end
         ofs = 0;
     }
-    return 1 + (randvals[ofs++] % burst);
+    int rand = 1 + (randvals[ofs++] % burst);
+    std::cout << "Random: " << rand << std::endl;
+    return rand;
 }
 
 void read_rfile(std::string file_name){
@@ -58,6 +65,7 @@ public:
     int current_cpu_burst;
     int static_priority;
     int dynamic_priority;
+    bool preempted;
     process_state_t state;
     // Each process has at least 4 parameters
     Process(int at, int tc, int cb, int io){
@@ -71,20 +79,25 @@ public:
         dynamic_priority = static_priority - 1;
         total_io_time = 0;
         state = STATE_CREATED;
+        preempted = false;
         process_number = number_of_processes++;
     }
     int get_cpu_burst(){
+        if (preempted){
+            return current_cpu_burst;
+        }
         int cb = myrandom(cpu_burst);
         if (cb > remaining_cpu_time){
             cb = remaining_cpu_time;
         }
-        remaining_cpu_time = remaining_cpu_time - cb;
         current_cpu_burst = cb;
+        std::cout << "Cpu burst is: " << cb << std::endl;
         return cb; 
     }
     int get_io_burst(){
         int iob = myrandom(io_burst);
         total_io_time += iob;
+        std::cout << "IO burst is: " << iob << std::endl;
         return iob; 
     }
     void print_process(){
@@ -92,10 +105,11 @@ public:
         << "AT: " << arrival_time << " "
         << "TC: " << total_cpu_time << " "
         << "CB: " << cpu_burst << " "
-        << "IO: " << io_burst << std::endl; 
+        << "IO: " << io_burst << " " 
+        << "Remaining time: " << remaining_cpu_time
+        << std::endl; 
     }
 };
-
 int Process::number_of_processes = 0;
 
 class Event{
@@ -120,7 +134,6 @@ public:
         << "Process: " << process->process_number << std::endl;
     }
 };
-
 int Event::number_of_events = 0;
 
 std::vector<Process*> processes;
@@ -143,12 +156,6 @@ void print_processes(){
 
 class Scheduler{
     // The scheduler class is a base class for the different schedulers 
-    // TODO: Assign static_priority using myrandom(maxprio)
-    // TODO: The scheduler maintains a ReadyQueue where all processes that are ready to run are maintained. 
-    // I think the base class should have the Quantum value 
-    // When a process has to be preempted, the dynamic priority is decremented. (dynamic_priority--)
-    // When the dynamic priority reaches -1, then reset it to static_priority-1
-    // When a process is made ready (from blocked), set dynamic_priority to static_priority-1
 private:
 public:
     int quantum;
@@ -163,6 +170,7 @@ public:
 
 // There are 6 schedulers that we need to implement. 
 
+
 // FCFS: First Come First Serve
 class FCFS : public Scheduler{
 private:
@@ -176,8 +184,6 @@ public:
         std::cout << "Adding Process ";
         p.print_process();
         if (p.remaining_cpu_time <= 0){
-            std::cout << "Process is done";
-            p.print_process();
             return;
         }
         readyQ.push_back(&p);
@@ -187,8 +193,11 @@ public:
         if (readyQ.empty()){
             return NULL;
         }
-        Process* next_process = readyQ.front();
-        readyQ.pop_front();
+        Process* next_process;
+        do{
+            next_process = readyQ.front();
+            readyQ.pop_front();
+        }while (next_process->remaining_cpu_time <= 0);
         return next_process;
     }
     void test_preemt(Process &p, int curtime) override{
@@ -196,50 +205,119 @@ public:
     }
 
 };
-// TODO: LCFS: I'm guessing this one is Last Come First Served
+
+
+// LCFS: I'm guessing this one is Last Come First Served
 class LCFS : public Scheduler{
 private:
     std::deque<Process*> readyQ;
 public:
+    LCFS(){
+        std::cout << "Creating LCFS" << std::endl;
+        quantum = 10000;
+    }
     void add_process(Process &p) override{
+        // Adds p to the begining of the readyQueue 
+        std::cout << "Adding Process ";
+        p.print_process();
+        if (p.remaining_cpu_time <= 0){
+            return;
+        }
+        readyQ.push_front(&p);
     }
     Process* get_next_process() override{
-        return NULL;
+        std::cout << "Getting Next process" << std::endl;
+        if (readyQ.empty()){
+            return NULL;
+        }
+        Process* next_process;
+        do{
+            next_process = readyQ.front();
+            readyQ.pop_front();
+        }while (next_process->remaining_cpu_time <= 0);
+        return next_process;
     }
     void test_preemt(Process &p, int curtime) override{
     }
 
 
 };
-// TODO: SRTF: Shortest Remaining Time First
+
+
+// SRTF: Shortest Remaining Time First
 class SRTF : public Scheduler{
     // choose the process whose remaining time is the shortest
     // This version is non-preemptive
     // Once the cpu-burst is issued, then we finish the process. 
+private:
+    std::deque<Process*> readyQ;
 public:
+    SRTF(){
+        quantum = 10000;
+    }
     void add_process(Process &p) override{
+        // Add the process where it is supposed to be according to the remaining time
+        for(std::deque<Process*>::iterator it = readyQ.begin(); it != readyQ.end(); it++){
+            if (p.remaining_cpu_time < (*it)->remaining_cpu_time){
+                readyQ.insert(it, &p);
+                return;
+            }
+        }
+        readyQ.push_back(&p);
     }
     Process* get_next_process() override{
+        std::cout << "Getting Next process" << std::endl;
+        if (readyQ.empty()){
+            return NULL;
+        }
+        Process* next_process;
+        do{
+            next_process = readyQ.front();
+            readyQ.pop_front();
+        }while (next_process->remaining_cpu_time <= 0);
+        return next_process;
         return NULL;
     }
     void test_preemt(Process &p, int curtime) override{
     }
 
 };
-// TODO: RR: Round Robin
+
+
+// RR: Round Robin
 class RR : public Scheduler{
     // Take the cpu away from processes (preemption)
+private:
+    std::deque<Process*> readyQ;
 public:
+    RR(int q){
+        quantum = q;
+    }
     void add_process(Process &p) override{
+        // Adds p to the end of the readyQueue 
+        if (p.remaining_cpu_time <= 0){
+            return;
+        }
+        readyQ.push_back(&p);
     }
     Process* get_next_process() override{
-        return NULL;
+        if (readyQ.empty()){
+            return NULL;
+        }
+        Process* next_process;
+        do{
+            next_process = readyQ.front();
+            readyQ.pop_front();
+        }while (next_process->remaining_cpu_time <= 0);
+        return next_process;
     }
     void test_preemt(Process &p, int curtime) override{
     }
 
 
 };
+
+
 // TODO: PRIO: Priority Scheduler 
 class PRIO : public Scheduler{
     // Each process has a priority. We can assign a quantum that is longer or shorter based on that priority.
@@ -288,7 +366,7 @@ public:
     void put_event(Event* e){
         // We need to put the event in its correct position in the eventQ
         for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); it++){
-            if ((*e).timestamp <= (*it)->timestamp){
+            if ((*e).timestamp < (*it)->timestamp){
                 eventQ.insert(it, e);
                 return;
             }
@@ -334,6 +412,7 @@ public:
             int new_timestamp;
             switch(evt->transition){
                 case TRANS_TO_READY:
+                    // When a process is made ready (from blocked), set dynamic_priority to static_priority-1
                     // must come from BLOCKED or from PREEMTION or from CREATED
                     std::cout << "Transitioning Process to ready ";
                     proc->print_process();
@@ -349,9 +428,18 @@ public:
                     if (cpu_burst > scheduler->quantum){
                         transition = TRANS_TO_PREEMPT;
                         new_timestamp += scheduler->quantum;
-                    }else{
+                        proc->remaining_cpu_time = proc->remaining_cpu_time - scheduler->quantum;
+                        proc->preempted = true;
+                        proc->current_cpu_burst -= scheduler->quantum;
+                    }else{  
+                        proc->preempted = false;
+                        proc->remaining_cpu_time = proc->remaining_cpu_time - cpu_burst;
+                        if (proc->remaining_cpu_time <= 0){
+                            transition = TRANS_TO_DONE;
+                        }else{
+                            transition = TRANS_TO_BLOCK;
+                        }
                         new_timestamp += cpu_burst;
-                        transition = TRANS_TO_BLOCK;
                     }
                     put_event(new Event(*proc, new_timestamp, transition));
                     current_process = proc;
@@ -367,10 +455,18 @@ public:
                     current_process = nullptr;
                     break;
                 case TRANS_TO_PREEMPT:
+                    // When a process has to be preempted, the dynamic priority is decremented. (dynamic_priority--)
+                    // When the dynamic priority reaches -1, then reset it to static_priority-1
                     std::cout << "Transitioning Process to preempt ";
                     proc->print_process();
                     // add to runqueue (no event is generated)
                     scheduler->add_process(*proc);
+                    CALL_SCHEDULER = true;
+                    current_process = nullptr;
+                    break;
+                case TRANS_TO_DONE:
+                    std::cout << "Transitioning Process to Done ";
+                    proc->print_process();
                     CALL_SCHEDULER = true;
                     current_process = nullptr;
                     break;
@@ -409,7 +505,7 @@ int main(int argc, char** argv){
     char l;
     Scheduler* s;
     std::string usage = "<program> [-v] [-t] [-e][-s<schedspec>] inputfile randfile";
-    int quantum = 10000;
+    int quantum;
     while ((c = getopt(argc, argv, "s:vte")) != -1){
         switch(c){
             case 's':
@@ -426,7 +522,7 @@ int main(int argc, char** argv){
                         break;
                     case 'R':
                         std:sscanf(optarg+1, "%d", &quantum);
-                        s = new RR();
+                        s = new RR(quantum);
                         break;
                     case 'P':
                         std::sscanf(optarg + 1, "%d:%d", &quantum, &maxprio);
