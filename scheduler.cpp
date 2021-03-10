@@ -334,6 +334,8 @@ public:
     }
 
 };
+
+
 // TODO: PREPRIO: PREemptive PRIO
 class PREPRIO : public Scheduler{
 
@@ -363,6 +365,7 @@ public:
             eventQ.push_back(new Event(*processes[i], processes[i]->arrival_time, TRANS_TO_READY));
         }
     }
+
     void put_event(Event* e){
         // We need to put the event in its correct position in the eventQ
         for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); it++){
@@ -373,6 +376,7 @@ public:
         }
         eventQ.push_back(e);
     }
+
     Event* get_event(){
         if(eventQ.empty()){
             return NULL;
@@ -381,6 +385,7 @@ public:
         eventQ.pop_front();
         return evt;
     }
+
     int get_next_event_time(){
         if (eventQ.empty()){
             return -1; // return an invalid timestamp
@@ -388,6 +393,7 @@ public:
         int time = eventQ.front()->timestamp;
         return time;
     }
+
     void print_eventQueue(){
         int i = 0;
         std::cout << "The event Queue is: " << std::endl;
@@ -399,6 +405,7 @@ public:
             (*it)->print_event();
         }
     }
+
     void start_simulation(){
         std::cout << "Starting the simulation" << std::endl;
         Event* evt;
@@ -535,13 +542,10 @@ int main(int argc, char** argv){
                 }
                 break;
             case 'v':
-                std::cout << "The v flag was provided" << std::endl;
                 break;
             case 't':
-                std::cout << "The t flag was provided" << std::endl;
                 break;
             case 'e':
-                std::cout << "The e flag was provided" << std::endl;
                 break;
         }
     }
