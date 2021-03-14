@@ -435,7 +435,6 @@ public:
 };
 
 
-// TODO: PREPRIO: PREemptive PRIO
 class PREPRIO : public Scheduler{
 
 public:
@@ -489,25 +488,31 @@ public:
     }
 
     bool test_preemt(Process &p, int curtime, std::list<Event*> &event_queue) override{
+        std::cout << "---> PRIO preemption";
         if (!current_running_process){
+            std::cout << "---> NO (no current_process)" << std::endl;
             return false;
         }
-        // TODO: Figure out if the process has a higher dprio than the current running process
+        std::cout << p.process_number << " by " << current_running_process->process_number
+        << " ? "; 
         if (p.dynamic_priority > current_running_process->dynamic_priority){
-            for(std::list<Event*>::iterator it; it != event_queue.end(); it++){
+            for(std::list<Event*>::iterator it = event_queue.begin(); it != event_queue.end(); it++){
                 if (((*it)->timestamp == curtime) && ((*it)->process == current_running_process)){
+                    std::cout << "---> NO" << std::endl;
                     return false;
                 }
             }
         }else{
+            std::cout << "---> NO" << std::endl;
             return false;
         }
-        // TODO: Remove the events related to p
-        for(std::list<Event*>::iterator it; it != event_queue.end(); it++){
+        for(std::list<Event*>::iterator it = event_queue.begin(); it != event_queue.end(); it++){
             if ((*it)->process == current_running_process){
+                std::cout << " Removing " << (*it)->timestamp << ":" << (*it)->process->process_number << std::endl;
                 event_queue.erase(it);
             }
         }
+        std::cout << "---> YES" << std::endl;
         return true;
 
     }
@@ -672,6 +677,7 @@ public:
             print_eventQueue();
         bool CPU_RUNNING = true;
         bool IO_RUNNING = true;
+        bool used_full_quantum = true;
         int using_io = 0;
         int last_time_not_using_io = current_time;
         while((evt = get_event())){
@@ -706,14 +712,14 @@ public:
                         using_io = 0;
                         IO_RUNNING = false;
                     }
-                    proc->state = STATE_READY;
                     if (scheduler->test_preemt(*proc, current_time, eventQ)){
-                        // TODO: create a new event to run proc
-                        put_event(new Event(*proc, current_time, TRANS_TO_RUN));
-                        // TODO: create a new event to PREEMPT the current_running_process
                         put_event(new Event((*scheduler->current_running_process), current_time, TRANS_TO_PREEMPT));
-                        break;
+                        std::cout << "Preemption prematurely" << std::endl;
+                        used_full_quantum = false;
+                        // put_event(new Event(*proc, current_time, TRANS_TO_RUN));
+                        // break;
                     }
+                    proc->state = STATE_READY;
                     scheduler->add_process(*proc);
                     CALL_SCHEDULER = true;
                     break;
@@ -729,9 +735,7 @@ public:
                     if (cpu_burst > scheduler->quantum){
                         transition = TRANS_TO_PREEMPT;
                         new_timestamp += scheduler->quantum;
-                        proc->remaining_cpu_time = proc->remaining_cpu_time - scheduler->quantum;
                         proc->preempted = true;
-                        proc->current_cpu_burst -= scheduler->quantum;
                     }else{  
                         proc->preempted = false;
                         proc->remaining_cpu_time = proc->remaining_cpu_time - cpu_burst;
@@ -768,9 +772,26 @@ public:
                     break;
                 case TRANS_TO_PREEMPT:
                     proc->dynamic_priority--;
+                    if (used_full_quantum){
+                        proc->remaining_cpu_time = proc->remaining_cpu_time - scheduler->quantum;
+                        std::cout << "Used full quantum when preempted" << std::endl;
+                        proc->current_cpu_burst -= scheduler->quantum;
+                    }else{
+                        std::cout << "did not use full quantum when preempted" << std::endl;
+                        if (!proc->preempted){
+                            proc->remaining_cpu_time -= proc->time_in_current_state - proc->current_cpu_burst;
+                            proc->preempted = true;
+                        }else{
+                            proc->remaining_cpu_time -= proc->time_in_current_state;
+                        }
+                        proc->current_cpu_burst -= proc->time_in_current_state;
+                        used_full_quantum = true;
+                    }
                     proc->state = STATE_PREEMPTED;
-                    if (vflag)
-                        std::cout << "PREEMPTED"<< std::endl;
+                    if (vflag){
+                        std::cout << "PREEMPTED "
+                        << "cb=" << proc->current_cpu_burst << " rem=" << proc->remaining_cpu_time << std::endl;
+                    }
                     // add to runqueue (no event is generated)
                     scheduler->add_process(*proc);
                     CALL_SCHEDULER = true;
@@ -829,8 +850,7 @@ public:
                         continue;
                     }
                     if (aflag){
-                        std::cout << "The scheduler returned the next process wich is: ";
-                        proc->to_string();
+                        std::cout << "The scheduler returned the next process wich is: " << proc->process_number <<  std::endl;
                     }
                     put_event(new Event(*proc, current_time, TRANS_TO_RUN));
                 }
