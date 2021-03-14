@@ -1,7 +1,10 @@
 #include <iostream>
 #include <deque>
 #include <list>
+#include <string>
+#include <vector>
 
+using namespace std;
 class Process{
 public:
     int arrival_time;
@@ -72,20 +75,16 @@ int main(){
     eventQ.push_back(new Event(12));
     eventQ.push_back(new Event(19));
     Event e(20);
-    for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); ++it){
-        std::cout << (*it)->timestamp << std::endl;
-        if (e.timestamp < (*it)->timestamp){
-            std::cout << "inserting" << std::endl;
-            eventQ.insert(it, &e);
-            break;
-        }
-        if(it == eventQ.end()){
-            std::cout << "We are in the endgame now" << std::endl;
-            eventQ.push_back(&e);
-        }
-    }
-    for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); ++it){
-        std::cout << (*it)->timestamp << std::endl;
-    }
+    int maxprio = 5;
+    vector<list<string*> >* courseLists = new vector<list<string*> >[maxprio];
+    list<string*> droppedStudents;
+    string p = "hi";
+    string* s = &p;
+    droppedStudents.push_back(s);
+    string pi = "Hello world";
+    s = &pi;
+    droppedStudents.push_back(s);
+    courseLists->push_back(droppedStudents);
+    cout << *(*courseLists)[0].front();
 }
 
