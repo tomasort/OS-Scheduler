@@ -489,6 +489,9 @@ public:
     }
 
     bool test_preemt(Process &p, int curtime, std::list<Event*> &event_queue) override{
+        if (!current_running_process){
+            return false;
+        }
         // TODO: Figure out if the process has a higher dprio than the current running process
         if (p.dynamic_priority > current_running_process->dynamic_priority){
             for(std::list<Event*>::iterator it; it != event_queue.end(); it++){
