@@ -705,7 +705,7 @@ public:
                     if (proc->state == STATE_BLOCKED){
                         using_io--;
                     }
-                    if (using_io <= 0){
+                    if (using_io <= 0){ // This whole thing can be rfactored. 
                         if (IO_RUNNING){
                             last_time_not_using_io = current_time;
                         }
