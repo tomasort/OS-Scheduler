@@ -7,8 +7,7 @@
 #include <list>
 #include <iomanip>
 
-#define CURRENT_TIME = 10000
-#define QUANTUM = 10000 //TODO: There is actually no default quantum 
+#define QUANTUM = 1000000
 int num_rnums;
 int maxprio = 4;
 int* randvals = NULL;
@@ -18,6 +17,7 @@ int aflag = 0;
 int tflag = 0;
 int vflag = 0;
 int eflag = 0;
+
 typedef enum{
     STATE_CREATED,
     STATE_READY,
@@ -41,8 +41,6 @@ int myrandom(int burst){
         ofs = 0;
     }
     int rand = 1 + (randvals[ofs++] % burst);
-    if (aflag)
-        std::cout << "Random: " << rand << std::endl;
     return rand;
 }
 
@@ -75,6 +73,7 @@ public:
     bool preempted;
     int finish_time;
     process_state_t state;
+
     // Each process has at least 4 parameters
     Process(int at, int tc, int cb, int io){
         arrival_time = at;
@@ -93,6 +92,7 @@ public:
         current_ts = arrival_time;
         time_in_current_state = 0;
     }
+
     int get_cpu_burst(){
         if (preempted){
             return current_cpu_burst;
@@ -102,23 +102,17 @@ public:
             cb = remaining_cpu_time;
         }
         current_cpu_burst = cb;
-        if (aflag)
-            std::cout << "Cpu burst is: " << cb << std::endl;
         return cb; 
     }
+
     int get_io_burst(){
         int iob = myrandom(io_burst);
         total_io_time += iob;
-        if (aflag)
-            std::cout << "IO burst is: " << iob << std::endl;
         return iob; 
     }
+
     std::string to_string(){
         std::string process = "Process #" + std::to_string(process_number);
-        process += std::to_string(total_cpu_time);
-        process += " TC: " + std::to_string(total_cpu_time);
-        process += " CB: " + std::to_string(cpu_burst);
-        process += " IO: " + std::to_string(io_burst);
         process += " RemainingTime: " + std::to_string(remaining_cpu_time);
         return process;
 
@@ -135,12 +129,14 @@ public:
     process_state_t old_state;
     process_state_t new_state;
     process_transition_t transition;
+
     Event(Process &p, int ts, process_transition_t transition_to){
         process = &p;
         timestamp = ts;
         transition = transition_to;
         event_number = number_of_events++;
     }
+
     std::string to_string(){
         std::string event = "Event #" + std::to_string(event_number);
         event += " TimeStamp: " + std::to_string(timestamp);
@@ -162,13 +158,6 @@ void read_processes(std::string file_name){
     }
 }
 
-void print_processes(){
-    std::cout << "Printing Processes: " << std::endl;
-    for(int i=0; i < processes.size(); i++){
-        std::cout << processes[i]->to_string() << std::endl;
-    }
-}
-
 class Scheduler{
     // The scheduler class is a base class for the different schedulers 
 public:
@@ -176,14 +165,18 @@ public:
     Process* current_running_process;
     std::deque<Process*> readyQ;
     int quantum;
+
     virtual void add_process(Process &p){
     }
+
     virtual Process* get_next_process(){
         return NULL;
     }
+
     virtual bool test_preemt(Process &p, int curtime, std::list<Event*> &event_queue){
         return false;
     }
+
     virtual void print_scheduler(){
         std::cout << "SCHED  (" << readyQ.size() << "):  ";
         for (int i = 0; i < readyQ.size(); i++){
@@ -191,6 +184,7 @@ public:
         }
         std::cout << std::endl;
     }
+
     virtual std::string to_string(){
         return name;
     }
@@ -206,6 +200,7 @@ public:
         name = "FCFS";
         quantum = 10000;
     }
+
     void add_process(Process &p) override{
         // Adds p to the end of the readyQueue 
         if (p.remaining_cpu_time <= 0){
@@ -213,9 +208,8 @@ public:
         }
         readyQ.push_back(&p);
     }
+
     Process* get_next_process() override{
-        if (aflag)
-            std::cout << "Getting Next process" << std::endl;
         if (readyQ.empty()){
             return NULL;
         }
@@ -236,6 +230,7 @@ public:
         name = "LCFS";
         quantum = 10000;
     }
+
     void add_process(Process &p) override{
         // Adds p to the begining of the readyQueue 
         if (p.remaining_cpu_time <= 0){
@@ -243,9 +238,8 @@ public:
         }
         readyQ.push_front(&p);
     }
+
     Process* get_next_process() override{
-        if (aflag)
-            std::cout << "Getting Next process" << std::endl;
         if (readyQ.empty()){
             return NULL;
         }
@@ -269,6 +263,7 @@ public:
         name = "SRTF";
         quantum = 10000;
     }
+
     void add_process(Process &p) override{
         // Add the process where it is supposed to be according to the remaining time
         for(std::deque<Process*>::iterator it = readyQ.begin(); it != readyQ.end(); it++){
@@ -279,9 +274,8 @@ public:
         }
         readyQ.push_back(&p);
     }
+
     Process* get_next_process() override{
-        if (aflag)
-            std::cout << "Getting Next process" << std::endl;
         if (readyQ.empty()){
             return NULL;
         }
@@ -304,6 +298,7 @@ public:
         name = "RR";
         quantum = q;
     }
+
     void add_process(Process &p) override{
         // Adds p to the end of the readyQueue 
         if (p.remaining_cpu_time <= 0){
@@ -311,6 +306,7 @@ public:
         }
         readyQ.push_back(&p);
     }
+
     Process* get_next_process() override{
         if (readyQ.empty()){
             return NULL;
@@ -322,6 +318,7 @@ public:
         }while (next_process->remaining_cpu_time <= 0);
         return next_process;
     }
+
     std::string to_string() override{
         return name + " " + std::to_string(quantum);
     }
@@ -330,15 +327,13 @@ public:
 
 class PRIO : public Scheduler{
     // Each process has a priority. We can assign a quantum that is longer or shorter based on that priority.
-    // I think we ned to mantain two queues. 
-    // std::queue<Process*> *activeQ = calloc(sizeof(std::queue<Process*>), MAX_PRIORITY);
-    // std::queue<Process*> *expiredQ = calloc(sizeof(std::queue<Process*>), MAX_PRIORITY);
 public:
     int maxprio;
     // MLFQ aka priority decay scheduler
-    std::deque< std::list<Process*>* >* readyQ;
-    std::deque< std::list<Process*>* >* expiredQ;
-    std::deque< std::list<Process*>* >* temp;
+    std::deque<std::list<Process*>* >* readyQ;
+    std::deque<std::list<Process*>* >* expiredQ;
+
+    std::deque<std::list<Process*>* >* temp;
     PRIO(int q, int mp){
         name = "PRIO";
         quantum = q;
@@ -350,6 +345,7 @@ public:
             expiredQ->push_back(new std::list<Process*>);
         }
     }
+
     void add_process(Process &p) override{
         if (p.dynamic_priority < 0){
             p.dynamic_priority = p.static_priority-1;
@@ -370,6 +366,7 @@ public:
         }
         return true;
     }
+
     Process* get_next_process() override{
         std::list<Process*> *l;
         Process* next_process = NULL;
@@ -380,7 +377,7 @@ public:
             l->pop_front();
             return next_process;
         }
-        std::cout << "switched queues" << std::endl;
+        if (vflag) std::cout << "switched queues" << std::endl;
         temp = readyQ;
         readyQ = expiredQ;
         expiredQ = temp;
@@ -393,6 +390,7 @@ public:
         }
         return next_process;
     }
+
     void print_scheduler() override{
         std::cout << "{ ";
         for (int i = readyQ->size()-1; i >= 0; i--){
@@ -473,7 +471,7 @@ public:
             l->pop_front();
             return next_process;
         }
-        std::cout << "switched queues" << std::endl;
+        if (vflag) std::cout << "switched queues" << std::endl;
         temp = readyQ;
         readyQ = expiredQ;
         expiredQ = temp;
@@ -488,31 +486,31 @@ public:
     }
 
     bool test_preemt(Process &p, int curtime, std::list<Event*> &event_queue) override{
-        std::cout << "---> PRIO preemption";
+        if (vflag) std::cout << "---> PRIO preemption";
         if (!current_running_process){
-            std::cout << "---> NO (no current_process)" << std::endl;
+            if (vflag) std::cout << "---> NO (no current_process)" << std::endl;
             return false;
         }
-        std::cout << p.process_number << " by " << current_running_process->process_number
-        << " ? "; 
+        if (vflag) std::cout << p.process_number << " by " << current_running_process->process_number << " ? "; 
         if (p.dynamic_priority > current_running_process->dynamic_priority){
+            // TODO: Test to see if the eventQueue is empty. 
             for(std::list<Event*>::iterator it = event_queue.begin(); it != event_queue.end(); it++){
                 if (((*it)->timestamp == curtime) && ((*it)->process == current_running_process)){
-                    std::cout << "---> NO" << std::endl;
+                    if (vflag) std::cout << "---> NO" << std::endl;
                     return false;
                 }
             }
         }else{
-            std::cout << "---> NO" << std::endl;
+            if (vflag) std::cout << "---> NO" << std::endl;
             return false;
         }
         for(std::list<Event*>::iterator it = event_queue.begin(); it != event_queue.end(); it++){
             if ((*it)->process == current_running_process){
-                std::cout << " Removing " << (*it)->timestamp << ":" << (*it)->process->process_number << std::endl;
+                if (vflag) std::cout << " Removing " << (*it)->timestamp << ":" << (*it)->process->process_number << std::endl;
                 event_queue.erase(it);
             }
         }
-        std::cout << "---> YES" << std::endl;
+        if (vflag) std::cout << "---> YES" << std::endl;
         return true;
 
     }
@@ -552,6 +550,7 @@ public:
         std::cout << "}";
         std::cout << std::endl;
     }
+
     std::string to_string() override{
         return name + " " + std::to_string(quantum);
     }
@@ -564,11 +563,12 @@ public:
     std::list<Event*> eventQ;
     Scheduler* scheduler;
     int current_time;
-    float cpu_utilization; // percentage (0.0 – 100.0) of time at least one process is running
-    float io_utilization;  // percentage (0.0 – 100.0) of time at least one process is performing IO
-    float throughput;
+    double cpu_utilization; // percentage (0.0 – 100.0) of time at least one process is running
+    double io_utilization;  // percentage (0.0 – 100.0) of time at least one process is performing IO
+    double throughput;
     int idle_cpu_time = 0;
     int idle_io_time = 0;
+
     Simulation(Scheduler* s){
         scheduler = s;
         current_time = 0;
@@ -589,17 +589,6 @@ public:
         }
         eventQ.push_back(e);
     }
-    // void remove_events(Process *p){
-    //     // Removes all events related to a process
-    //     for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); it++){
-    //         // If the event has p as a process
-    //         if ((*it)->process == p)
-    //             eventQ.erase(it);
-    //             return;
-    //         }
-    //     }
-    //     eventQ.push_back(e);
-    // }
 
     Event* get_event(){
         if(eventQ.empty()){
@@ -632,9 +621,11 @@ public:
 
     void print_results(){
         std::cout << scheduler->to_string() << std::endl;
-        float avg_turnaround = 0.0;
-        float avg_wait_time = 0.0;
-        float throughput = 0.0;
+        double cpu_utilization = ((current_time-idle_cpu_time)/double(current_time))*100;
+        double io_utilization = ((current_time-idle_io_time)/double(current_time))*100;
+        double avg_turnaround = 0.0;
+        double avg_wait_time = 0.0;
+        double throughput = 0.0;
         for(int i=0; i < processes.size(); i++){
             Process* proc = processes[i];
             std::cout << std::setw(4) << std::setfill('0') << proc->process_number << ": ";
@@ -651,33 +642,30 @@ public:
         }
         avg_turnaround /= processes.size();
         avg_wait_time /= processes.size();
+        double a,b;
+        a = 1.0/3.0;
+        b = 2.0/3.0;
+        printf("%.2lf %.2lf\n", a, b);
+        printf("%.3lf %.3lf\n", a, b);
         // Total sim time, CPU utilization, I/O Utilization, Avg Turnaround time, Avg wait time, Throughput
+        printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", current_time, cpu_utilization, io_utilization, avg_turnaround, avg_wait_time, processes.size()/(current_time/100.0));
         std::cout << "SUM: " << current_time << " " 
-        << std::setprecision(2) << std::fixed << (current_time - idle_cpu_time)*100.0/current_time << " "
-        << std::setprecision(2) << std::fixed << (current_time - idle_io_time)*100.0/current_time << " " 
+        << std::setprecision(2) << std::fixed << cpu_utilization << " "
+        << std::setprecision(2) << std::fixed << io_utilization << " " 
         << std::setprecision(2) << std::fixed << avg_turnaround << " " 
         << std::setprecision(2) << std::fixed << avg_wait_time << " " 
         << std::setprecision(3) << std::fixed << processes.size()/(current_time/100.0) << " " 
         << std::endl;
     }
 
-    // void force_preemption(){
-    //     if ()
-    //     for(std::list<Event*>::iterator it = eventQ.begin(); it != eventQ.end(); it++){
-    //         std::cout << (*it)->timestamp << ":" << (*it)->process->process_number << "  ";
-    //     }
-    // }
-
-
     void start_simulation(){
         Event* evt;
         bool CALL_SCHEDULER = false;
         int last_time_not_running = current_time;
-        if(vflag)
-            print_eventQueue();
+        if(vflag) print_eventQueue();
         bool CPU_RUNNING = true;
         bool IO_RUNNING = true;
-        bool used_full_quantum = true;
+        bool preempted_by_another_proc = true;
         int using_io = 0;
         int last_time_not_using_io = current_time;
         while((evt = get_event())){
@@ -700,8 +688,8 @@ public:
                 case TRANS_TO_READY:
                     // When a process is made ready (from blocked), set dynamic_priority to static_priority-1
                     // must come from BLOCKED or from PREEMTION or from CREATED
-                    if (vflag)
-                        std::cout << StateStrings[STATE_READY] << std::endl;
+                    if (vflag) std::cout << StateStrings[STATE_READY] << std::endl;
+                    // Here we can see where the process changed from blocked to ready (it finished IO?)
                     if (proc->state == STATE_BLOCKED){
                         using_io--;
                     }
@@ -714,10 +702,9 @@ public:
                     }
                     if (scheduler->test_preemt(*proc, current_time, eventQ)){
                         put_event(new Event((*scheduler->current_running_process), current_time, TRANS_TO_PREEMPT));
-                        std::cout << "Preemption prematurely" << std::endl;
-                        used_full_quantum = false;
-                        // put_event(new Event(*proc, current_time, TRANS_TO_RUN));
-                        // break;
+                        if (vflag) std::cout << "Preemption prematurely" << std::endl;
+                        preempted_by_another_proc
+                = false;
                     }
                     proc->state = STATE_READY;
                     scheduler->add_process(*proc);
@@ -758,26 +745,32 @@ public:
                         std::cout << StateStrings[proc->state] << " "
                         << "ib=" << io_burst << " rem=" << proc->remaining_cpu_time << std::endl;
                     put_event(new Event(*proc, current_time + io_burst, TRANS_TO_READY));
+                    // Here we can test if the process started using IO
+
                     if (using_io <= 0){
                         IO_RUNNING = true;
-                        // std::cout << "Something started using io" << std::endl;
-                        // std::cout << "Nothing was using IO since: " << last_time_not_using_io << std::endl;
-                        // std::cout << "Adding " << current_time - last_time_not_using_io << std::endl;
                         idle_io_time += current_time - last_time_not_using_io;
                     }
                     using_io ++;
+
+                    //  reset the priority and state that there are no running processes
                     proc->dynamic_priority = proc->static_priority-1;
-                    CALL_SCHEDULER = true;
                     scheduler->current_running_process = nullptr;
+                    CALL_SCHEDULER = true;
                     break;
+
                 case TRANS_TO_PREEMPT:
+                    // decrement the priority when the process is preempted
                     proc->dynamic_priority--;
-                    if (used_full_quantum){
-                        proc->remaining_cpu_time = proc->remaining_cpu_time - scheduler->quantum;
-                        std::cout << "Used full quantum when preempted" << std::endl;
+
+                    // determine if the process was able to use the full quantum or if it was preempted before it got to use the entire time
+                    if (preempted_by_another_proc
+           ){
+                        proc->remaining_cpu_time = proc->remaining_cpu_time-scheduler->quantum;
+                        if (vflag) std::cout << "Used full quantum when preempted" << std::endl;
                         proc->current_cpu_burst -= scheduler->quantum;
                     }else{
-                        std::cout << "did not use full quantum when preempted" << std::endl;
+                        if (vflag) std::cout << "did not use full quantum when preempted" << std::endl;
                         if (!proc->preempted){
                             proc->remaining_cpu_time -= proc->time_in_current_state - proc->current_cpu_burst;
                             proc->preempted = true;
@@ -785,13 +778,15 @@ public:
                             proc->remaining_cpu_time -= proc->time_in_current_state;
                         }
                         proc->current_cpu_burst -= proc->time_in_current_state;
-                        used_full_quantum = true;
+                        preempted_by_another_proc
+                = true;
                     }
                     proc->state = STATE_PREEMPTED;
                     if (vflag){
                         std::cout << "PREEMPTED "
                         << "cb=" << proc->current_cpu_burst << " rem=" << proc->remaining_cpu_time << std::endl;
                     }
+
                     // add to runqueue (no event is generated)
                     scheduler->add_process(*proc);
                     CALL_SCHEDULER = true;
@@ -801,8 +796,6 @@ public:
                     proc->state = STATE_DONE;
                     proc->finish_time = current_time;
                     if (using_io <= 0){
-                        // std::cout << "Nothing was using IO since: " << last_time_not_using_io << std::endl;
-                        // std::cout << "Adding " << current_time - last_time_not_using_io << std::endl;
                         idle_io_time += current_time - last_time_not_using_io;
                         last_time_not_using_io = current_time;
                     }
@@ -815,19 +808,15 @@ public:
             }
             delete evt; 
             evt = nullptr;
-            // std::cout << "Current time is: " << current_time << std::endl;
             if (scheduler->current_running_process == nullptr){
                 if (CPU_RUNNING)
                     last_time_not_running = current_time;
                 CPU_RUNNING = false;
-                // std::cout << "Nothing Running since " << last_time_not_running << std::endl;
             }else{
                 if (!CPU_RUNNING){
                     idle_cpu_time += current_time - last_time_not_running;
                     CPU_RUNNING = true;
-                    // std::cout << "Something Started" << std::endl;
                 }else{
-                    // std::cout << "Something is running" << std::endl;
                 }
             }
             if (CALL_SCHEDULER){
@@ -838,26 +827,12 @@ public:
                 if(scheduler->current_running_process == nullptr){
                     if (tflag)
                         scheduler->print_scheduler();
-                    if (aflag)
-                        std::cout << "Calling the scheduler " << std::endl;
                     proc = scheduler->get_next_process();
                     if (proc == nullptr){
-                        if (aflag){
-                            std::cout << "The scheduler returned nothing" << std::endl;
-                            std::cout << "The current time is: " << current_time << std::endl;
-                            print_eventQueue();
-                        }
                         continue;
-                    }
-                    if (aflag){
-                        std::cout << "The scheduler returned the next process wich is: " << proc->process_number <<  std::endl;
                     }
                     put_event(new Event(*proc, current_time, TRANS_TO_RUN));
                 }
-            }
-            if (aflag){
-                std::cout << "The current time is: " << current_time << std::endl;
-                print_eventQueue();
             }
         }
     }
@@ -888,11 +863,11 @@ int main(int argc, char** argv){
                         s = new RR(quantum);
                         break;
                     case 'P':
-                        std::sscanf(optarg + 1, "%d:%d", &quantum, &maxprio);
+                        std::sscanf(optarg+1, "%d:%d", &quantum, &maxprio);
                         s = new PRIO(quantum, maxprio);
                         break;
                     case 'E':
-                        std::sscanf(optarg + 1, "%d:%d", &quantum, &maxprio);
+                        std::sscanf(optarg+1, "%d:%d", &quantum, &maxprio);
                         s = new PREPRIO(quantum, maxprio);
                         break;
                 }
