@@ -621,8 +621,8 @@ public:
 
     void print_results(){
         std::cout << scheduler->to_string() << std::endl;
-        double cpu_utilization = ((current_time-idle_cpu_time)/double(current_time))*100;
-        double io_utilization = ((current_time-idle_io_time)/double(current_time))*100;
+        double cpu_utilization = (current_time-idle_cpu_time)*100.0/current_time;
+        double io_utilization = (current_time-idle_io_time)*100.0/current_time;
         double avg_turnaround = 0.0;
         double avg_wait_time = 0.0;
         double throughput = 0.0;
@@ -689,6 +689,7 @@ public:
                     // When a process is made ready (from blocked), set dynamic_priority to static_priority-1
                     // must come from BLOCKED or from PREEMTION or from CREATED
                     if (vflag) std::cout << StateStrings[STATE_READY] << std::endl;
+
                     // Here we can see where the process changed from blocked to ready (it finished IO?)
                     if (proc->state == STATE_BLOCKED){
                         using_io--;
