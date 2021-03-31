@@ -7,7 +7,7 @@
 #include <list>
 #include <iomanip>
 
-#define QUANTUM = 1000000
+#define MAX_QUANTUM = 1000000
 int num_rnums;
 int maxprio = 4;
 int* randvals = NULL;
@@ -194,7 +194,7 @@ class FCFS : public Scheduler{
 public:
     FCFS(){
         name = "FCFS";
-        quantum = 10000;
+        quantum = MAX_QUANTUM;
     }
 
     void add_process(Process &p) override{
@@ -224,7 +224,7 @@ class LCFS : public Scheduler{
 public:
     LCFS(){
         name = "LCFS";
-        quantum = 10000;
+        quantum = MAX_QUANTUM;
     }
 
     void add_process(Process &p) override{
@@ -257,7 +257,7 @@ class SRTF : public Scheduler{
 public:
     SRTF(){
         name = "SRTF";
-        quantum = 10000;
+        quantum = MAX_QUANTUM;
     }
 
     void add_process(Process &p) override{
@@ -292,7 +292,7 @@ class RR : public Scheduler{
 public:
     RR(int q){
         name = "RR";
-        quantum = q;
+        quantum = q;  //
     }
 
     void add_process(Process &p) override{
