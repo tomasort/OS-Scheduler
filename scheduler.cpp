@@ -7,7 +7,7 @@
 #include <list>
 #include <iomanip>
 
-#define MAX_QUANTUM = 1000000
+int MAX_QUANTUM = 1000000;
 int num_rnums;
 int maxprio = 4;
 int* randvals = NULL;
@@ -292,7 +292,7 @@ class RR : public Scheduler{
 public:
     RR(int q){
         name = "RR";
-        quantum = q;  //
+        quantum = q; 
     }
 
     void add_process(Process &p) override{
