@@ -621,8 +621,8 @@ public:
 
     void print_results(){
         std::cout << scheduler->to_string() << std::endl;
-        cpu_utilization = cpu_time*100.0/current_time;
-        io_utilization = io_time*100.0/current_time;
+        cpu_utilization = 100.0*((double)cpu_time/(double)current_time);
+        io_utilization = 100.0*((double)io_time/(double)current_time);
         double avg_turnaround = 0.0;
         double avg_wait_time = 0.0;
         double throughput = 0.0;
@@ -643,7 +643,7 @@ public:
         avg_turnaround /= processes.size();
         avg_wait_time /= processes.size();
         // Total sim time, CPU utilization, I/O Utilization, Avg Turnaround time, Avg wait time, Throughput
-        printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", current_time, cpu_utilization, io_utilization, avg_turnaround, avg_wait_time, processes.size()/(current_time/100.0));
+        printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", current_time, cpu_utilization, io_utilization, avg_turnaround, avg_wait_time, processes.size()/((double)current_time/100.0));
     }
 
     void start_simulation(){
