@@ -4,7 +4,7 @@ Some tips on how to run this.
 tar -xzvf refout.tar.Z )
 
 #Optional Untar the verbose reference output
-tar -xzvf refout_z.tar.Z )
+tar -xzvf refout_v.tar.Z )
 
 #write your program .. standard way of writing a program
 mkdir src
